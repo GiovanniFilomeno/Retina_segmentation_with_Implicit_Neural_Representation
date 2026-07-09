@@ -1,236 +1,266 @@
 # Retinal Vessel Segmentation with Implicit Neural Representations
 
 <p align="center">
-  <b>Resolution-independent retinal vessel segmentation using SIREN-based Implicit Neural Representations</b>
+  <strong>A reproducibility-focused archive of a completed exploratory research project</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python">
-  <img src="https://img.shields.io/badge/framework-PyTorch-red" alt="PyTorch">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-  <img src="https://img.shields.io/badge/datasets-FIVES%20%7C%20RAVIR-orange" alt="Datasets">
+  <a href="https://github.com/GiovanniFilomeno/Retina_segmentation_with_Implicit_Neural_Representation/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/GiovanniFilomeno/Retina_segmentation_with_Implicit_Neural_Representation/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white">
+  <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-2.2%2B-EE4C2C?logo=pytorch&logoColor=white">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-2ea44f"></a>
+  <img alt="Status: research archive" src="https://img.shields.io/badge/Status-research%20archive-6f42c1">
 </p>
 
----
+This repository investigates a simple question: **can a pointwise implicit neural
+representation (INR), conditioned on pixel position and intensity, act as a useful
+baseline for retinal vessel segmentation?** It presents a maintained SIREN-inspired
+PyTorch implementation and an explicit account of the project's evidence boundary.
 
-## Overview
+The work was completed by **Giovanni Filomeno** in research collaboration with
+researchers at the Medical University of Vienna. This is an independently
+maintained project archive, not an official institutional publication. The
+affiliation statement does not imply institutional review, approval, or endorsement.
 
-This project explores **Implicit Neural Representations (INR)** as an alternative to convolutional neural networks for retinal vessel segmentation. Instead of learning convolution filters over image patches, the model learns a **continuous function** mapping pixel coordinates and intensity to segmentation labels:
+> [!IMPORTANT]
+> This repository publishes **no validated benchmark results and no trained
+> checkpoints**. Values in superseded exploratory artifacts are not presented as
+> test-set metrics.
+> The maintained package and synthetic checks document the implementation; they do
+> not establish clinical or scientific performance.
 
-$$f_\theta: (x, y, I) \longrightarrow \text{class probability}$$
+## Project status
 
-This formulation is inherently **resolution-independent** — a model trained on 256×256 patches can perform inference at any resolution by simply varying the density of the query coordinate grid.
+The research project is complete and is not undergoing new model training. The
+repository was subsequently hardened for public inspection: packaging, input/output
+contracts, synthetic tests, documentation, and continuous integration are maintained
+without retroactively inventing experimental evidence.
 
-### Key Contributions
+- **Available:** reusable model and preprocessing code, loss functions, synthetic
+  CPU checks, tests, configuration examples, and an unexecuted smoke-test notebook.
+- **Not available:** datasets, model weights, complete run logs, frozen split
+  manifests from the original study, or validated benchmark reports.
+- **Intended use:** study, code review, and extension as a research baseline.
+- **Not intended use:** diagnosis, treatment, screening, or any other clinical
+  decision.
 
-- **SIREN-based architecture** with Fourier positional encoding for medical image segmentation
-- **Focal-Dice combined loss** to handle severe class imbalance (vessels = 5–15% of pixels)
-- **Patch-based training** with high-variance patch selection for efficient learning
-- Evaluation on two complementary benchmarks: **FIVES** (binary, fundus) and **RAVIR** (3-class, IR angiography)
-- **Ablation studies** on network depth, activation functions, loss functions, and learning rate schedules
+For a concise account of the study and its evidentiary boundary, read the
+[research note](docs/research_note.md). For exact environment and data caveats, see
+[the reproducibility guide](docs/reproducibility.md).
 
----
+## Method
 
-## Architecture
+Each pixel is represented by normalized coordinates and grayscale intensity:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    INR Segmentation Pipeline                     │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Input (per pixel)     Positional        SIREN MLP              │
-│  ┌───────────────┐     Encoding          ┌──────────────┐       │
-│  │ x_norm ∈ [0,1]│─┐   ┌──────────┐  ┌─▶│ SineLayer    │       │
-│  │ y_norm ∈ [0,1]│─┼──▶│ sin/cos  │──┤  │ + BatchNorm  │×(L-2) │
-│  │ intensity     │─┘   │ 2^k freq │  │  └──────┬───────┘       │
-│  └───────────────┘     └──────────┘  │         │               │
-│                              │       │         ▼               │
-│                        [Concatenate]  │  ┌──────────────┐       │
-│                              │       │  │ Output Layer  │       │
-│                        [Reduction]───┘  │ → σ / softmax │       │
-│                        Linear(→H)       └──────┬───────┘       │
-│                                                │               │
-│                                                ▼               │
-│                                         class probabilities     │
-└─────────────────────────────────────────────────────────────────┘
-```
+$$
+f_\theta(x, y, I) \rightarrow \text{segmentation logits}.
+$$
 
-**Positional Encoding** maps 2D coordinates to high-frequency Fourier features, overcoming the spectral bias of MLPs:
+The coordinates are expanded with Fourier features, concatenated with intensity,
+and processed by a sinusoidal multilayer perceptron. Binary models emit one raw
+logit per point; multiclass models emit one raw logit per class. Activations needed
+for probabilities belong in evaluation code (`sigmoid` or `softmax`), keeping the
+model compatible with numerically stable logit-based losses.
 
-$$\gamma(x) = \bigl[\sin(2^0 x),\; \cos(2^0 x),\; \sin(2^1 x),\; \cos(2^1 x),\; \dots,\; \sin(2^{L-1} x),\; \cos(2^{L-1} x)\bigr]$$
+![Pointwise INR research baseline: coordinate and intensity inputs pass through Fourier features and a SIREN MLP to produce logits](docs/assets/architecture.svg)
 
-**SIREN Layers** use sinusoidal activation $h_{i+1} = \sin(\omega_0 \cdot W_i h_i + b_i)$ with a specialized weight initialization (Sitzmann et al., NeurIPS 2020) that preserves activation variance through depth.
+This is deliberately a **pointwise research baseline**. It is not a U-Net and does
+not learn a neighbourhood-aware image encoder. Querying a coordinate function on a
+different grid is mechanically possible, but resolution generalization was not
+validated in this project and is not claimed here.
 
----
+## Maintained engineering scope
 
-## Datasets
+- Explicit binary one-logit and multiclass K-logit contracts, with probability
+  transforms kept outside the model.
+- Numerically stable focal–Dice objectives operating directly on logits.
+- Image/mask pairing by validated identifiers, strict label-value checks, and shared
+  geometric augmentation without photometric mask corruption.
+- One coordinate convention for training and inference, exact odd-size patch
+  reconstruction, and chunked full-image prediction.
+- Pure per-image binary and multiclass metrics plus regression tests that verify the
+  evaluator uses masks and preserves pixel alignment across patches.
+- CPU-only synthetic smoke checks, automated tests, formatting, linting, and GitHub
+  Actions CI. These establish software contracts, not model quality.
 
-| Dataset | Modality | Resolution | Classes | Task |
-|---------|----------|------------|---------|------|
-| [**FIVES**](https://figshare.com/articles/figure/FIVES_A_Fundus_Image_Dataset_for_AI-based_Vessel_Segmentation/19688169) | Color Fundus | 2048 × 2048 | 2 | Binary vessel segmentation |
-| [**RAVIR**](https://ravir.grand-challenge.org/) | IR Angiography | 768 × 768 | 3 | Vein / Artery / Background |
+## Scientific limitations
 
----
+- A prediction sees only its coordinate and local intensity. The model has no
+  explicit access to adjacent texture, vessel continuity, or multiscale context.
+- Coordinates can be local to a patch, so the learned function is not necessarily a
+  globally consistent representation of a full retina.
+- The FIVES loader converts color fundus photographs to grayscale; the information
+  loss from that design choice was not measured.
+- The superseded experiments do not provide the controlled baselines, multiple seeds,
+  held-out metrics, confidence intervals, or provenance required for a benchmark
+  claim.
+- Training loss is neither a segmentation metric nor evidence of generalization.
+- Cross-resolution behavior, domain shift, calibration, and robustness were not
+  established.
+- FIVES and RAVIR have distinct modalities, labels, licenses, and evaluation
+  protocols; observations should not be transferred between them without study.
 
-## Results
+These limitations define the evidence boundary: the repository preserves a compact,
+inspectable hypothesis and makes clear what would need to be tested next.
 
-### FIVES — Binary Vessel Segmentation
+## Synthetic quick start
 
-| Model | Layers | α | γ | Focal-Dice Loss |
-|-------|--------|---|---|-----------------|
-| SIREN + FocalDice | **4** | 0.75 | 2 | **0.8846** |
-| SIREN + FocalDice | 6 | 0.75 | 2 | 0.9217 |
-| SIREN + FocalDice | 2 | 0.75 | 2 | 0.8762 |
-
-### RAVIR — Multi-Class Segmentation (Ablation Study)
-
-| Layers | Output | α | γ | Freq | Batch | Loss | Notes |
-|--------|--------|---|---|------|-------|------|-------|
-| 6 | Linear+Softmax | 0.8 | 2 | 10 | 16 | 1.249 | LR=1e-3 best |
-| 9 | Sine+Softmax | 0.8 | 2 | 10 | 16 | **0.987** | Best convergence |
-| 9 | Sine+Softmax | 0.8 | 2 | 10 | 16 | 0.910 | + Dropout → degenerates |
-| 3 | Linear+Softmax | 0.5 | 0.5 | 30 | 16 | 1.187 | Higher freq helps |
-
-**Key Findings:**
-- 4-layer SIREN achieves optimal depth–performance tradeoff on FIVES
-- Sine activation consistently outperforms ReLU for fine vessel structures
-- Focal-Dice loss is critical for handling the ~85/15% class imbalance
-- Dropout with sine activations can cause degenerate predictions — use with caution
-- Learning rate 1e-3 with ReduceLROnPlateau provides stable convergence
-
----
-
-## Project Structure
-
-```
-.
-├── README.md
-├── requirements.txt
-├── .gitignore
-│
-├── src/                          # Reusable Python package
-│   ├── __init__.py
-│   ├── models.py                 # INR model, SIREN layers, positional encoding
-│   ├── datasets.py               # FIVES & RAVIR dataset classes, Patcher
-│   ├── losses.py                 # Focal-Dice loss (binary & multi-class)
-│   └── utils.py                  # Evaluation, visualization, patch utilities
-│
-├── notebooks/                    # Main experiment notebooks (start here)
-│   ├── 01_fives_binary_segmentation.ipynb
-│   ├── 02_ravir_multiclass_segmentation.ipynb
-│   └── 03_ravir_patch_generation.ipynb
-│
-├── checkpoints/                  # Trained model weights (.pth)
-│
-├── data/                         # Datasets (not tracked — see data/README.md)
-│   ├── README.md                 # Download instructions
-│   ├── FIVES/
-│   └── RAVIR/
-│
-├── experiments/                  # Archived exploratory notebooks
-│   ├── fives_original.ipynb
-│   ├── ravir_original.ipynb
-│   └── old/                      # Early prototypes and ablations
-│
-└── references/                   # Third-party code and papers
-    ├── liif/                     # LIIF reference implementation
-    └── literature/
-```
-
----
-
-## Quick Start
-
-### 1. Clone & Install
+The following path requires no retinal data, checkpoint, or GPU. It verifies tensor
+shapes, finite outputs, preprocessing, loss execution, and a backward pass on
+synthetic inputs.
 
 ```bash
-git clone https://github.com/<your-username>/retinal-vessel-segmentation-inr.git
-cd retinal-vessel-segmentation-inr
+git clone https://github.com/GiovanniFilomeno/Retina_segmentation_with_Implicit_Neural_Representation.git
+cd Retina_segmentation_with_Implicit_Neural_Representation
 
-# Option A: conda
-conda env create -f environment.yml
-conda activate retina-inr
+python -m venv .venv
+source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e '.[dev]'
 
-# Option B: pip
-pip install -r requirements.txt
+python -m retina_inr.smoke
 ```
 
-### 2. Download Datasets
+The command runs on CPU and exits with a non-zero status if a check fails. It is a
+software smoke test, not a scientific evaluation. A matching, intentionally
+unexecuted notebook is available at
+[`notebooks/01_synthetic_smoke_test.ipynb`](notebooks/01_synthetic_smoke_test.ipynb).
 
-Follow the instructions in [`data/README.md`](data/README.md) to download and place the
-FIVES and RAVIR datasets.
+Run the complete software test suite with:
 
-### 3. Run Notebooks
+```bash
+pytest
+```
 
-Open the notebooks in order:
-
-| Notebook | Description |
-|----------|-------------|
-| [`01_fives_binary_segmentation.ipynb`](notebooks/01_fives_binary_segmentation.ipynb) | Binary vessel segmentation on FIVES (2048×2048 fundus images) |
-| [`02_ravir_multiclass_segmentation.ipynb`](notebooks/02_ravir_multiclass_segmentation.ipynb) | 3-class segmentation on RAVIR (IR angiography) |
-| [`03_ravir_patch_generation.ipynb`](notebooks/03_ravir_patch_generation.ipynb) | Utility: extract high-variance training patches |
-
-### 4. Use as a Python Package
+## Minimal API example
 
 ```python
-from src import INRSegmentationModel, FIVESDataset, BinaryFocalDiceLoss
+import torch
 
-# Initialize model
+from retina_inr import INRSegmentationModel
+
 model = INRSegmentationModel(
-    num_classes=2,
-    hidden_dim=256,
-    num_layers=4,
-    num_freqs=5,
-)
+    task="binary",
+    hidden_dim=32,
+    num_layers=2,
+    num_freqs=3,
+).eval()
 
-# Load trained weights
-model.load_state_dict(torch.load("checkpoints/fives_binary_4layers.pth"))
+# One row per point: [x_normalized, y_normalized, intensity_normalized]
+coords = torch.rand(64, 2) * 2.0 - 1.0  # x and y in [-1, 1]
+intensities = torch.rand(64, 1)         # grayscale intensity in [0, 1]
+features = torch.cat((coords, intensities), dim=1)
+with torch.inference_mode():
+    logits = model(features)
+
+assert logits.shape == (64, 1)
 ```
 
----
+Inputs must follow the normalization and label conventions documented in the package.
+Do not load untrusted checkpoint files with unrestricted deserialization.
 
-## Technical Deep Dive
+## Data
 
-### Why INR Instead of CNNs?
+The datasets are not redistributed. Obtain them from their maintainers and review
+their terms before use.
 
-| Property | CNN (U-Net, etc.) | INR (This Work) |
-|----------|------------------|-----------------|
-| Input | Fixed-size image patches | Per-pixel (x, y, intensity) |
-| Resolution | Tied to training resolution | **Resolution-independent** |
-| Parameters | ~31M (U-Net) | **~0.5M** |
-| Inductive bias | Translation equivariance | Continuous signal representation |
-| Inference | Requires interpolation for upscaling | Natively arbitrary resolution |
+| Dataset | Research task in this repository | Official source |
+| --- | --- | --- |
+| FIVES | Binary vessel/background segmentation in color fundus images | [Dataset record on Figshare](https://figshare.com/articles/figure/FIVES_A_Fundus_Image_Dataset_for_AI-based_Vessel_Segmentation/19688169) · [paper](https://doi.org/10.1038/s41597-022-01564-3) |
+| RAVIR | Background/artery/vein segmentation in infrared reflectance images | [Grand Challenge page](https://ravir.grand-challenge.org/) · [paper](https://doi.org/10.1109/JBHI.2022.3163352) |
 
-### Loss Function Design
+Expected local layout:
 
-The **Focal-Dice Loss** combines two complementary objectives:
+```text
+data/
+├── README.md
+├── FIVES/
+│   ├── train/
+│   │   ├── Original/
+│   │   └── Ground truth/
+│   └── test/
+│       ├── Original/
+│       └── Ground truth/
+└── RAVIR/
+    ├── train/
+    │   ├── training_images/
+    │   └── training_masks/
+    └── test/
+```
 
-**Focal Loss** — Addresses class imbalance by down-weighting well-classified pixels:
-$$\mathcal{L}_{\text{focal}} = -\alpha (1-p)^\gamma \log(p)$$
+See [`data/README.md`](data/README.md) for pairing rules, label handling, and the
+boundary between dataset-defined and repository-defined conventions.
 
-**Dice Loss** — Directly optimizes spatial overlap (F1 score):
-$$\mathcal{L}_{\text{dice}} = 1 - \frac{2|A \cap B| + \epsilon}{|A| + |B| + \epsilon}$$
+## Reproducibility boundary
 
-### SIREN Weight Initialization
+The maintained package can be rebuilt and checked from source using the commands
+above. The original scientific runs cannot be reproduced exactly from this archive
+because the original artifacts needed for an auditable rerun were not retained.
+Accordingly:
 
-Critical for stable training of deep sine networks:
-- **First layer**: $W \sim \mathcal{U}\left(-\frac{1}{n}, \frac{1}{n}\right)$
-- **Other layers**: $W \sim \mathcal{U}\left(-\frac{\sqrt{6/n}}{\omega_0}, \frac{\sqrt{6/n}}{\omega_0}\right)$
+- superseded exploratory notebooks are recoverable from Git history, not maintained
+  executable result reports;
+- configs describe candidate settings, not certified published experiments;
+- tests establish software behavior on synthetic fixtures only; and
+- any future benchmark must define splits before training, preserve environment and
+  checkpoint provenance, report per-image segmentation metrics, and compare against
+  appropriate baselines.
 
-This ensures unit-variance activations, preventing vanishing/exploding gradients.
+The full checklist is in [`docs/reproducibility.md`](docs/reproducibility.md).
 
----
+## Repository guide
 
-## References
+```text
+.
+├── src/
+│   └── retina_inr/             # Maintained installable package
+├── tests/                      # Synthetic unit and contract tests
+├── configs/                    # Reproducible configuration examples
+├── notebooks/
+│   └── 01_synthetic_smoke_test.ipynb
+├── docs/                       # Research and reproducibility notes
+├── data/README.md              # Data acquisition and expected layout
+├── references/                # Bibliography and third-party reference material
+├── pyproject.toml              # Package metadata and development dependencies
+├── CITATION.cff
+└── THIRD_PARTY_NOTICES.md
+```
 
-1. **Sitzmann, V.** et al. *Implicit Neural Representations with Periodic Activation Functions.* NeurIPS 2020. [[paper](https://arxiv.org/abs/2006.09661)]
-2. **Mildenhall, B.** et al. *NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis.* ECCV 2020. [[paper](https://arxiv.org/abs/2003.08934)]
-3. **Chen, Y.** et al. *Learning Continuous Image Representation with Local Implicit Image Function.* CVPR 2021. [[paper](https://arxiv.org/abs/2012.09161)]
-4. **Lin, T.-Y.** et al. *Focal Loss for Dense Object Detection.* ICCV 2017. [[paper](https://arxiv.org/abs/1708.02002)]
-5. **Jin, K.** et al. *FIVES: A Fundus Image Dataset for AI-based Vessel Segmentation.* Scientific Data, 2022. [[paper](https://doi.org/10.1038/s41597-022-01564-3)]
+Superseded notebooks, prototype code, binary literature copies, and vendored reference
+implementations were removed from the maintained tree. They remain recoverable from
+Git history when provenance work requires them. New code and examples should import
+`retina_inr`.
 
----
+## Collaboration and authorship
 
-## License
+- **Giovanni Filomeno:** project implementation, exploratory experimentation,
+  repository maintenance, and public archival documentation.
+- **Research collaborators at the Medical University of Vienna:** research
+  discussion and domain context during the completed collaboration.
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+No institutional authorship or endorsement is asserted. If you contributed to the
+original work and want your role named more precisely, please open an issue with the
+requested attribution.
+
+## Citation
+
+This repository is software and an exploratory research archive, not a peer-reviewed
+paper. Cite the archived version described in [`CITATION.cff`](CITATION.cff), and
+cite the original datasets and methods separately. Core literature is listed in
+[`references/README.md`](references/README.md).
+
+## Contributing
+
+Maintenance contributions that improve correctness, tests, documentation, or
+reproducibility are welcome. New performance claims require auditable evidence; see
+[`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
+
+## License and responsible use
+
+First-party source code is released under the [MIT License](LICENSE). Dependencies,
+datasets, and third-party material in earlier Git revisions retain their original
+terms; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+This software is provided for research and educational use. It is **not a medical
+device**, has not been clinically validated, and must not be used for patient care or
+clinical decision-making.

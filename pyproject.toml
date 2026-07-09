@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retina-inr"
+version = "0.1.0"
+description = "A research prototype for coordinate-based retinal vessel segmentation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Giovanni Filomeno" }]
+keywords = [
+  "computer-vision",
+  "implicit-neural-representations",
+  "medical-imaging",
+  "retinal-vessel-segmentation",
+  "siren",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+  "albumentations>=1.4,<3",
+  "numpy>=1.24,<3",
+  "opencv-python-headless>=4.8,<5",
+  "PyYAML>=6,<7",
+  "torch>=2.2,<3",
+]
+
+[project.scripts]
+retina-inr-smoke = "retina_inr.smoke:main"
+
+[project.optional-dependencies]
+dev = [
+  "pre-commit==4.6.0",
+  "pytest==8.4.2",
+  "pytest-cov==7.1.0",
+  "ruff==0.15.20",
+]
+notebooks = [
+  "ipykernel>=6.29,<8",
+  "jupyterlab>=4,<5",
+]
+
+[project.urls]
+Homepage = "https://github.com/GiovanniFilomeno/Retina_segmentation_with_Implicit_Neural_Representation"
+Issues = "https://github.com/GiovanniFilomeno/Retina_segmentation_with_Implicit_Neural_Representation/issues"
+Repository = "https://github.com/GiovanniFilomeno/Retina_segmentation_with_Implicit_Neural_Representation.git"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["retina_inr*"]
+
+[tool.pytest.ini_options]
+addopts = [
+  "--strict-config",
+  "--strict-markers",
+  "--tb=short",
+  "--cov=retina_inr",
+  "--cov-report=term-missing",
+  "--cov-fail-under=60",
+]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["retina_inr"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "B",
+  "E4",
+  "E7",
+  "E9",
+  "F",
+  "I",
+  "NPY",
+  "PT",
+  "RUF",
+  "UP",
+]
+ignore = [
+  "RUF012",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"

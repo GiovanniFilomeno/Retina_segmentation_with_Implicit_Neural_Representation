@@ -1,54 +1,76 @@
-# ──────────────────────────────────────────────────────────────────────────────
-# Data & model artifacts
-# ──────────────────────────────────────────────────────────────────────────────
-data/
-checkpoints/*.pth
-*.pth
+# Raw and derived data. Keep only the download/integrity instructions.
+data/*
+!data/README.md
+datasets/
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Python
-# ──────────────────────────────────────────────────────────────────────────────
+# Model weights and generated experiment artifacts.
+artifacts/
+checkpoints/
+outputs/
+predictions/
+reports/generated/
+runs/
+wandb/
+*.ckpt
+*.h5
+*.joblib
+*.onnx
+*.pb
+*.pickle
+*.pkl
+*.pt
+*.pth
+*.safetensors
+*.tflite
+
+# Secrets and machine-local configuration.
+.env
+.env.*
+!.env.example
+
+# Python build, test, and analysis output.
 __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
-dist/
+.coverage
+.coverage.*
+.hypothesis/
+.mypy_cache/
+.nox/
+.pytest_cache/
+.ruff_cache/
+.tox/
 build/
-.eggs/
+coverage.xml
+dist/
+htmlcov/
+site/
 *.egg
+*.log
+*.prof
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Jupyter Notebook
-# ──────────────────────────────────────────────────────────────────────────────
+# Generated reports and documentation builds.
+docs/_build/
+reports/*.html
+reports/*.pdf
+
+# Jupyter.
 .ipynb_checkpoints/
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Virtual environments
-# ──────────────────────────────────────────────────────────────────────────────
-venv/
-env/
-.venv/
-.env/
+# Virtual environments.
 .conda/
+.direnv/
+.env/
+.venv/
+env/
+venv/
 
-# ──────────────────────────────────────────────────────────────────────────────
-# IDE / Editor
-# ──────────────────────────────────────────────────────────────────────────────
-.vscode/
+# Editors and operating systems.
+.DS_Store
 .idea/
+.vscode/
+Thumbs.db
 *.swp
 *.swo
 *~
-
-# ──────────────────────────────────────────────────────────────────────────────
-# OS
-# ──────────────────────────────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Logs & outputs
-# ──────────────────────────────────────────────────────────────────────────────
-*.log
-runs/
-wandb/

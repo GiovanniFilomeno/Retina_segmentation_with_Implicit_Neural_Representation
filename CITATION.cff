@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: >-
+  If this software archive contributes to your work, please cite it using the
+  metadata below and cite the original datasets and methods separately.
+title: Retinal Vessel Segmentation with Implicit Neural Representations
+type: software
+authors:
+  - family-names: Filomeno
+    given-names: Giovanni
+repository-code: https://github.com/GiovanniFilomeno/Retina_segmentation_with_Implicit_Neural_Representation
+url: https://github.com/GiovanniFilomeno/Retina_segmentation_with_Implicit_Neural_Representation
+license: MIT
+abstract: >-
+  A reproducibility-focused software archive for an exploratory pointwise implicit
+  neural representation baseline for retinal vessel segmentation. The archive does
+  not publish validated benchmark results or trained checkpoints.
+keywords:
+  - implicit neural representation
+  - retinal vessel segmentation
+  - SIREN
+  - medical image analysis
+  - PyTorch
+

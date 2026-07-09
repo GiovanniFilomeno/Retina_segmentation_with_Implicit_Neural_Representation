@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+*.ipynb text eol=lf
+*.svg text eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.pth binary
+*.pt binary
+*.ckpt binary
